@@ -1,6 +1,6 @@
 import os, re
 from datetime import datetime, timedelta
-from dateutil import tz, paraser as dateparser
+from dateutil import tz, parser as dateparser
 from slack_sdk import WebClient
 
 JST = tz.gettz("Asia/Tokyo")
