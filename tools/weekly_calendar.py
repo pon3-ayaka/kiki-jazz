@@ -20,7 +20,7 @@ RANGE_FROM = now
 RANGE_TO = now + timedelta(days=POST_WINDOW_DAYS)
 
 # 抽出用のざっくり正規表現
-TITLE_RE = e.compile(r"^\s*(?:\[?タイトル\]?\s*)?(.+)$", re.MULTILINE)
+TITLE_RE = re.compile(r"^\s*(?:\[?タイトル\]?\s*)?(.+)$", re.MULTILINE)
 DATE_RE = re.compile(r"\[?日時\]?\s*([\d／/\-\.]{8,}\s+\d{1,2}:\d{2})")
 PLACE_RE = re.compile(r"\[?場所\]?\s*(.+)")
 
