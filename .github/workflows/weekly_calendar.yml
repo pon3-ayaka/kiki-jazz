@@ -1,0 +1,26 @@
+name: weekly-calendar
+on:
+  schedule:
+    - cron: '0 1 * * 5'
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements.txt
+      - name: Run weekly calendar job
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SRC_CHANNELS: ${{ secrets.SRC_CHANNELS }}
+          DEST_CHANNELS: ${{ secrets.DEST_CHANNEL }}
+          POST_WINDOW_DAYS: ${{ vars.POST_WINDOWS_DAYS || 14 }}
+          CLOSE_REACTIONS: ${{ vars.CLOSE_REACTIONS || 'no_entry,white_check_mark' }}
+          CLOSE_KEYWORDS: ${{ vars.CLOSE_KEYWORDS || '締切,〆切,クローズ,closed,close' }}
+          DRY_RUN: ${{ vars.DRY_RUN || 'false' }}
+        run: python tools/weekly_calendar.py
