@@ -108,13 +108,13 @@ def parse_fields(text):
     if md_line:
         line = md_line.group(1).strip()
         when = parse_event_date(line, now)
-        if md:
-            y, mo, d = md.group(1), md.group(2), md.group(3)
-            dt_str = f"{y}-{int(mo):02d}-{int(d):02d} 23:59"
-            try:
-                when = dateparser.parse(dt_str).replace(tzinfo=JST)
-            except Exception:
-                when = None
+        # if md:
+        #     y, mo, d = md.group(1), md.group(2), md.group(3)
+        #     dt_str = f"{y}-{int(mo):02d}-{int(d):02d} 23:59"
+        #     try:
+        #         when = dateparser.parse(dt_str).replace(tzinfo=JST)
+        #     except Exception:
+        #         when = None
 
     return title, when, place
 
