@@ -4,7 +4,7 @@ from dateutil import tz, parser as dateparser
 from slack_sdk import WebClient
 
 JST = tz.gettz("Asia/Tokyo")
-clinet = WebClient(token=os.environ["SLACK_BOT_TOKEN"])
+client = WebClient(token=os.environ["SLACK_BOT_TOKEN"])
 
 SRC = [s.strip() for s in os.environ["SRC_CHANNELS"].split(",")]
 DEST = os.environ["DEST_CHANNEL"]
@@ -43,7 +43,7 @@ def parse_fields(text):
 
 def is_closed(parent_ts, channel):
     # 親リアクション
-    rx = clinet.reactions_get(channel=channel, timestamp=parent_ts)
+    rx = client.reactions_get(channel=channel, timestamp=parent_ts)
     reactions = []
     if "message" in rx and rx["message"].get("reactions"):
         reactions = rx["message"]["reactions"]
@@ -63,7 +63,7 @@ def fetch_messages(ch):
     res = client.conversations_history(channel=ch, limit=200)
     messages.extend(res.get("messages", []))
     while res.get("has_more"):
-        res = clinet.conversations_history(channel=ch, cursor=res["response_metadata"]["next_cursor"], limit=200)
+        res = client.conversations_history(channel=ch, cursor=res["response_metadata"]["next_cursor"], limit=200)
         messages.extend(res.get("messages", []))
     return messages
 
