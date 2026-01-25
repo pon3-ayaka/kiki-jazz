@@ -132,7 +132,33 @@ def parse_event_date_info(line: str, now_jst: datetime):
         if m_day_only:
             end = start.replace(day=int(m_day_only.group(1)))
         else:
-            en
+            end = parse_event_date(rr, now_jst)
+
+        return start, end, False
+
+    # 複数日（カンマ）例: 2026/5/3,4 / 5/3,4 / 5月3日,4日
+    if "," in s or "，" in s or "、" in s:
+        parts = COMMA_SPLIT_RE.split(s)
+        left = parts[0].strip()
+        start = parse_event_date(left, now_jst)
+        if not start:
+            return None, None, False
+
+        last = WEEKDAY_NOISE_RE.sub("", parts[-1]).strip()
+        m_day_only = re.fullmatch(r"(\d{1,2})\s*(?:日)?", last)
+        if m_day_only:
+            end = start.replace(day=int(m_day_only.group(1)))
+        else:
+            end = parse_event_date(last, now_jst)
+
+        return start, end, False
+
+    # 単日
+    start = parse_event_date(s, now_jst)
+    if not start:
+        return None, None, False
+    return start, None, False
+
 
 
 def load_category_map():
