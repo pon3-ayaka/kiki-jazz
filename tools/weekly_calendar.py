@@ -131,7 +131,7 @@ def collect_events():
     return events
 
 def format_blocks(events):
-    header = "📢✨*毎週金曜配信！募集中イベント一覧*✨📢\n気になるイベントがないかチェック 👀✅"
+    header = "📢✨*金曜配信！募集中イベント*✨📢\n気になるイベントがないかチェック👀\nイベント名リンクから募集スレッドに飛べるよ！"
 
     category_emoji = {
         "無料ライブ": "🆓",
