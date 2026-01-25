@@ -24,8 +24,60 @@ EVENT_RE = re.compile(r"^■\s*イベント名\s*\n(.+)$", re.MULTILINE)
 DATE_LINE_RE = re.compile(r"^■\s*日時\s*\n(.+)$", re.MULTILINE)
 PLACE_RE = re.compile(r"^■\s*場所\s*\n(.+)$", re.MULTILINE)
 
-# 日付部分だけ抜く（例: 2026.02.01, 2026/02/01, 2026-02-01）
-DATE_ONLY_RE = re.compile(r"(\d{4})[./-](\d{1,2})[./-](\d{1,2})")
+DATE_TOKEN_RE = re.compile(
+    r"""
+    (?P<y>\d{4})\s*(?:[./\-年\s])\s*
+    (?P<m>\d{1,2})\s*(?:[./\-月\s])\s*
+    (?P<d>\d{1,2})\s*(?:[日]?) |
+    (?P<m2>\d{1,2})\s*(?:[./\-月\s])\s*
+    (?P<d2>\d{1,2})\s*(?:[日]?)
+    """,
+    re.VERBOSE
+)
+
+WEEKDAY_NOISE_RE = re.compile(r"[（(]?[月火水木金土日](?:曜|曜日)?[)）]?")
+
+def parse_event_date(line: str, now_jst: datetime) -> datetime | None:
+    s = line.strip()
+    s = WEEKDAY_NOISE_RE.sub("", s)
+    s = s.replace("　", " ")
+    s = re.sub(r"\s+", " ", s)
+
+    m = DATE_TOKEN_RE.search(s)
+    if not m:
+        return None
+
+    # 時刻が書いてあれば拾う（例: 19:30）。無ければ 23:59
+    tm = re.search(r"(\d{1,2}:\d{2})", s)
+    hhmm = tm.group(1) if tm else "23:59"
+
+    if m.group("y"):
+        # 年あり
+        y = int(m.group("y"))
+        mo = int(m.group("m"))
+        d = int(m.group("d"))
+        dt_str = f"{y:04d}-{mo:02d}-{d:02d} {hhmm}"
+        try:
+            return dateparser.parse(dt_str).replace(tzinfo=JST)
+        except Exception:
+            return None
+    else:
+        # 年なし → まず今年で作り、過去なら来年にする（未来になる方）
+        mo = int(m.group("m2"))
+        d = int(m.group("d2"))
+
+        for y in (now_jst.year, now_jst.year + 1):
+            dt_str = f"{y:04d}-{mo:02d}-{d:02d} {hhmm}"
+            try:
+                cand = dateparser.parse(dt_str).replace(tzinfo=JST)
+            except Exception:
+                continue
+            if cand >= now_jst:
+                return cand
+
+        # ここに来るのは基本レア（パース失敗が続いた等）
+        return None
+
 
 def load_category_map():
     m = {}
@@ -55,7 +107,7 @@ def parse_fields(text):
     when = None
     if md_line:
         line = md_line.group(1).strip()
-        md = DATE_ONLY_RE.search(line)
+        when = parse_event_date(line, now)
         if md:
             y, mo, d = md.group(1), md.group(2), md.group(3)
             dt_str = f"{y}-{int(mo):02d}-{int(d):02d} 23:59"
