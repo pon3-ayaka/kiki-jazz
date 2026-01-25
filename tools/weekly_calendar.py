@@ -27,6 +27,20 @@ PLACE_RE = re.compile(r"^■\s*場所\s*\n(.+)$", re.MULTILINE)
 # 日付部分だけ抜く（例: 2026.02.01, 2026/02/01, 2026-02-01）
 DATE_ONLY_RE = re.compile(r"(\d{4})[./-](\d{1,2})[./-](\d{1,2})")
 
+def load_category_map():
+    m = {}
+    def add(env_key, label):
+        ids = os.environ.get(env_key, "")
+        for cid in [x.strip() for x in ids.split(",") if x.strip()]:
+            m[cid] = label
+    add("FREE_CHANNELS", "無料ライブ")
+    add("PAID_CHANNELS", "チャージありライブ")
+    add("OTHER_CHANNELS", "その他")
+    return m
+
+CATEGORY_BY_CHANNEL = load_category_map()
+CATEGORY_ORDER = ["無料ライブ", "チャージありライブ", "その他"]
+
 def parse_fields(text):
     # イベント名
     m = EVENT_RE.search(text)
@@ -100,37 +114,56 @@ def collect_events():
             perma = client.chat_getPermalink(channel=ch, message_ts=m["ts"]).get("permalink")
             # チャンネル名
             info = client.conversations_info(channel=ch)
-            cname = "#" + info["channel"]["name"]
+            category = CATEGORY_BY_CHANNEL.get(ch, "その他")  # 未設定ならその他扱い
+
             events.append({
                 "ts": m["ts"],
                 "channel": ch,
-                "cname": cname,
+                "category": category,
                 "title": title,
                 "when": when,
                 "place": place,
                 "permalink": perma
             })
+
     # 日時昇順
     events.sort(key=lambda e: e["when"])
     return events
 
 def format_blocks(events):
+    header = "↓↓現在募集中のイベント！！↓↓"
+
     if not events:
-        text = f"*今週の募集中イベント（{now.strftime('%Y/%m/%d')} 時点）*\n掲載可能なイベントはありませんでした。"
-        return [{"type":"section","text":{"type":"mrkdwn","text":text}}]
-    header = f"*今週の募集中イベント（{now.strftime('%Y/%m/%d')} 時点）*"
-    lines = []
+        return [{"type":"section","text":{"type":"mrkdwn","text": header + "\n掲載可能なイベントはありませんでした。"}}]
+
+    # category -> list にまとめる
+    grouped = {k: [] for k in CATEGORY_ORDER}
     for e in events:
-        title_link = f"<{e['permalink']}|{e['title']}>"
-        lines.append(
-            f"• {e['when'].strftime('%m/%d(%a)')} — {title_link}（{e['place']}） — {e['cname']}"
-        )
-    body = "\n".join(lines)
-    return [
-        {"type":"section","text":{"type":"mrkdwn","text":header}},
-        {"type":"section","text":{"type":"mrkdwn","text":body}},
-        {"type":"context","elements":[{"type":"mrkdwn","text":"※ スレッド『締切』返信 or 指定リアクション付き／過去日時は掲載していません"}]}
-    ]
+        grouped.setdefault(e["category"], []).append(e)
+
+    blocks = [{"type":"section","text":{"type":"mrkdwn","text": header}}]
+
+    for cat in CATEGORY_ORDER:
+        lst = grouped.get(cat, [])
+        if not lst:
+            text = f"*** {cat} ***\n（現在募集はありません）"
+            blocks.append({"type":"section","text":{"type":"mrkdwn","text": text}})
+            continue
+
+        lines = []
+        for i, e in enumerate(lst, 1):
+            title_link = f"<{e['permalink']}|{e['title']}>"
+            lines.append(f"{i}. {e['when'].strftime('%m/%d(%a)')}ー{title_link}（{e['place']}）")
+
+        text = f"*** {cat} ***\n" + "\n".join(lines)
+        blocks.append({"type":"section","text":{"type":"mrkdwn","text": text}})
+
+    blocks.append({
+        "type":"context",
+        "elements":[{"type":"mrkdwn","text":"※ スレッド『締切』返信 or 指定リアクション付き／過去日時は掲載していません"}]
+    })
+    return blocks
+
 
 def run():
     events = collect_events()
