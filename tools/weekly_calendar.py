@@ -123,7 +123,7 @@ def format_blocks(events):
     for e in events:
         title_link = f"<{e['permalink']}|{e['title']}>"
         lines.append(
-            f"• {e['when'].strftime('%m/%d(%a) %H:%M')} — {title_link}（{e['place']}） — {e['cname']}"
+            f"• {e['when'].strftime('%m/%d(%a)')} — {title_link}（{e['place']}） — {e['cname']}"
         )
     body = "\n".join(lines)
     return [
