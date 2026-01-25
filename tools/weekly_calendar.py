@@ -2,6 +2,7 @@ import os, re
 from datetime import datetime, timedelta
 from dateutil import tz, parser as dateparser
 from slack_sdk import WebClient
+import unicodedata
 
 JST = tz.gettz("Asia/Tokyo")
 client = WebClient(token=os.environ["SLACK_BOT_TOKEN"])
