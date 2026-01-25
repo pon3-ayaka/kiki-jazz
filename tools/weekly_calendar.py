@@ -38,41 +38,48 @@ DATE_TOKEN_RE = re.compile(
 WEEKDAY_NOISE_RE = re.compile(r"[（(]?\s*[月火水木金土日]\s*(?:曜|曜日)?\s*[)）]?")
 
 def parse_event_date(line: str, now_jst: datetime) -> datetime | None:
-    s = line.strip()
+    s = (line or "").strip()
+    if not s:
+        return None
+
+    # ★ 全角数字/全角記号などを正規化（これが効きます）
+    s = unicodedata.normalize("NFKC", s)
+
+    # 曜日ノイズ除去
     s = WEEKDAY_NOISE_RE.sub("", s)
     s = s.replace("　", " ")
     s = re.sub(r"\s+", " ", s)
 
-    m = DATE_TOKEN_RE.search(s)
-    if not m:
-        return None
-
-    # 時刻（あれば使う／なければ 23:59）
+    # 時刻があれば拾う（なければ 23:59）
     tm = re.search(r"(\d{1,2}:\d{2})", s)
     hhmm = tm.group(1) if tm else "23:59"
 
     def build(y: int, mo: int, d: int) -> datetime | None:
-        dt_str = f"{y:04d}-{mo:02d}-{d:02d} {hhmm}"
         try:
+            dt_str = f"{y:04d}-{mo:02d}-{d:02d} {hhmm}"
             return dateparser.parse(dt_str).replace(tzinfo=JST)
         except Exception:
             return None
 
-    if m.group("y"):
-        # 年あり
-        y = int(m.group("y"))
-        mo = int(m.group("m"))
-        d = int(m.group("d"))
+    # 1) 年あり（優先）
+    m = re.search(r"(\d{4})\s*[./\-\s年]\s*(\d{1,2})\s*[./\-\s月]\s*(\d{1,2})", s)
+    if m:
+        y, mo, d = int(m.group(1)), int(m.group(2)), int(m.group(3))
         return build(y, mo, d)
 
-    # 年なし → 今年→来年の順に試して「未来になる方」
-    mo = int(m.group("m2"))
-    d = int(m.group("d2"))
+    # 2) 年なし（5月3日 / 10/11 / 10 11 など）
+    m = re.search(r"(\d{1,2})\s*[./\-\s月]\s*(\d{1,2})", s)
+    if not m:
+        return None
+    mo, d = int(m.group(1)), int(m.group(2))
+
+    # ★「未来になる方」：今年→来年で試して、未来になった方を採用
     for y in (now_jst.year, now_jst.year + 1):
         cand = build(y, mo, d)
         if cand and cand >= now_jst:
             return cand
     return None
+
 
 
 def load_category_map():
