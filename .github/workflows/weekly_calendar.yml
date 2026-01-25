@@ -23,4 +23,7 @@ jobs:
           CLOSE_REACTIONS: ${{ vars.CLOSE_REACTIONS || 'no_entry,white_check_mark' }}
           CLOSE_KEYWORDS: ${{ vars.CLOSE_KEYWORDS || '締切,〆切,クローズ,closed,close' }}
           DRY_RUN: ${{ vars.DRY_RUN || 'false' }}
+          FREE_CHANNELS: ${{ vars.FREE_CHANNELS }}   # 例: CAAAAAAA
+          PAID_CHANNELS: ${{ vars.PAID_CHANNELS }}   # 例: CBBBBBBB
+          OTHER_CHANNELS: ${{ vars.OTHER_CHANNELS }} # 例: CCCCCCCC
         run: python tools/weekly_calendar.py
