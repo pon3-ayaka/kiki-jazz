@@ -47,36 +47,32 @@ def parse_event_date(line: str, now_jst: datetime) -> datetime | None:
     if not m:
         return None
 
-    # 時刻が書いてあれば拾う（例: 19:30）。無ければ 23:59
+    # 時刻（あれば使う／なければ 23:59）
     tm = re.search(r"(\d{1,2}:\d{2})", s)
     hhmm = tm.group(1) if tm else "23:59"
+
+    def build(y: int, mo: int, d: int) -> datetime | None:
+        dt_str = f"{y:04d}-{mo:02d}-{d:02d} {hhmm}"
+        try:
+            return dateparser.parse(dt_str).replace(tzinfo=JST)
+        except Exception:
+            return None
 
     if m.group("y"):
         # 年あり
         y = int(m.group("y"))
         mo = int(m.group("m"))
         d = int(m.group("d"))
-        dt_str = f"{y:04d}-{mo:02d}-{d:02d} {hhmm}"
-        try:
-            return dateparser.parse(dt_str).replace(tzinfo=JST)
-        except Exception:
-            return None
-    else:
-        # 年なし → まず今年で作り、過去なら来年にする（未来になる方）
-        mo = int(m.group("m2"))
-        d = int(m.group("d2"))
+        return build(y, mo, d)
 
-        for y in (now_jst.year, now_jst.year + 1):
-            dt_str = f"{y:04d}-{mo:02d}-{d:02d} {hhmm}"
-            try:
-                cand = dateparser.parse(dt_str).replace(tzinfo=JST)
-            except Exception:
-                continue
-            if cand >= now_jst:
-                return cand
-
-        # ここに来るのは基本レア（パース失敗が続いた等）
-        return None
+    # 年なし → 今年→来年の順に試して「未来になる方」
+    mo = int(m.group("m2"))
+    d = int(m.group("d2"))
+    for y in (now_jst.year, now_jst.year + 1):
+        cand = build(y, mo, d)
+        if cand and cand >= now_jst:
+            return cand
+    return None
 
 
 def load_category_map():
@@ -115,11 +111,9 @@ def parse_fields(text):
         #         when = dateparser.parse(dt_str).replace(tzinfo=JST)
         #     except Exception:
         #         when = None
+        print("line=", line, "=> when=", when)
 
-    return title, when, place
-
-
- 
+    return title, when, place 
 
 def is_closed(parent_ts, channel):
     # 親リアクション
