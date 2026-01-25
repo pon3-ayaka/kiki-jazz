@@ -210,8 +210,6 @@ def collect_events():
             # startがある場合だけ過去を除外（未定は通す）
             if (start is not None) and (start < now):
                 continue
-            if end < now:
-                continue
             if is_closed(m["ts"], ch):
                 continue
             # 親パーマリンク
