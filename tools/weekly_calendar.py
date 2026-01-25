@@ -82,6 +82,57 @@ def parse_event_date(line: str, now_jst: datetime) -> datetime | None:
             return cand
     return None
 
+# --- 追加: 範囲/複数日の検出 ---
+RANGE_SEP_RE = re.compile(r"\s*(?:-|〜|～)\s*")
+COMMA_SPLIT_RE = re.compile(r"\s*[,，、]\s*")
+
+# --- 追加: 曜日表記（Mon/Tue...） ---
+DOW_EN = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+def dow(dt: datetime) -> str:
+    return DOW_EN[dt.weekday()]
+
+# --- 追加: 一覧表示の統一フォーマット ---
+def format_date_range(start: datetime, end: datetime | None) -> str:
+    if end is None or end.date() == start.date():
+        return f"{start.month}/{start.day}({dow(start)})"
+    if start.year == end.year and start.month == end.month:
+        return f"{start.month}/{start.day}({dow(start)})-{end.day}({dow(end)})"
+    return f"{start.month}/{start.day}({dow(start)})-{end.month}/{end.day}({dow(end)})"
+
+# --- 追加: 単日/期間/複数/未定をまとめて解釈 ---
+def parse_event_date_info(line: str, now_jst: datetime):
+    """
+    return: (start_dt, end_dt, undecided)
+      - undecided=True のとき start/end は None
+      - 期間/複数日は start/end を返す（表示は format_date_range で統一）
+    """
+    s = (line or "").strip()
+    if not s:
+        return None, None, False
+
+    # 未定
+    if "未定" in s or "TBD" in s.upper():
+        return None, None, True
+
+    # 全角→半角など（既存と同様）
+    s = unicodedata.normalize("NFKC", s)
+
+    # 期間（ハイフン/〜/～）
+    parts = RANGE_SEP_RE.split(s, maxsplit=1)
+    if len(parts) == 2:
+        left, right = parts[0].strip(), parts[1].strip()
+        start = parse_event_date(left, now_jst)
+        if not start:
+            return None, None, False
+
+        rr = WEEKDAY_NOISE_RE.sub("", right).strip()
+
+        # 右が「日だけ」例: 5 / 5日
+        m_day_only = re.fullmatch(r"(\d{1,2})\s*(?:日)?", rr)
+        if m_day_only:
+            end = start.replace(day=int(m_day_only.group(1)))
+        else:
+            en
 
 
 def load_category_map():
@@ -109,20 +160,15 @@ def parse_fields(text):
 
     # 日時（行全体 → 日付だけ抜く → 23:59を補う）
     md_line = DATE_LINE_RE.search(text)
-    when = None
+    start = end = None
+    undecided = False
     if md_line:
         line = md_line.group(1).strip()
-        when = parse_event_date(line, now)
-        # if md:
-        #     y, mo, d = md.group(1), md.group(2), md.group(3)
-        #     dt_str = f"{y}-{int(mo):02d}-{int(d):02d} 23:59"
-        #     try:
-        #         when = dateparser.parse(dt_str).replace(tzinfo=JST)
-        #     except Exception:
-        #         when = None
-        print("line=", line, "=> when=", when)
+        start, end, undecided = parse_event_date_info(line, now)
+        print("line=", line, "=> start=", start, "end=", end, "undecided=", undecided)
 
-    return title, when, place 
+    return title, place, start, end, undecided
+
 
 def is_closed(parent_ts, channel):
     # 親リアクション
@@ -158,10 +204,13 @@ def collect_events():
             if m.get("subtype"):
                 continue # bot_message等を除外
             text = m.get("text","")
-            title, when, place = parse_fields(text)
-            if not (title and when and place):
+            title, place, start, end, undecided = parse_fields(text)
+            if not (title and place):
                 continue
-            if when < now:
+            # startがある場合だけ過去を除外（未定は通す）
+            if (start is not None) and (start < now):
+                continue
+            if end < now:
                 continue
             if is_closed(m["ts"], ch):
                 continue
@@ -176,14 +225,21 @@ def collect_events():
                 "channel": ch,
                 "category": category,
                 "title": title,
-                "when": when,
                 "place": place,
-                "permalink": perma
+                "permalink": perma,
+                "start": start,           # Noneあり
+                "end": end,               # Noneあり
+                "undecided": undecided,   # Trueなら未定
             })
 
+
     # 日時昇順
-    events.sort(key=lambda e: e["when"])
-    return events
+    def sort_key(e):
+        if e.get("undecided") or e.get("start") is None:
+            return (1, datetime.max.replace(tzinfo=JST))
+        return (0, e["start"])
+    events.sort(key=sort_key)
+
 
 def format_blocks(events):
     header = "📢✨*金曜配信！募集中イベント*✨📢\n気になるイベントがないかチェック👀\nイベント名リンクから募集スレッドに飛べるよ！"
@@ -208,7 +264,12 @@ def format_blocks(events):
         lines = []
         for e in lst:
             title_link = f"<{e['permalink']}|{e['title']}>"
-            lines.append(f"• {e['when'].strftime('%m/%d(%a)')}: {title_link}（{e['place']}）")
+            if e.get("undecided") or e.get("start") is None:
+                date_part = "未定"
+            else:
+                date_part = format_date_range(e["start"], e.get("end"))
+
+            lines.append(f"• {date_part}: {title_link}（{e['place']}）")
 
         emoji = category_emoji.get(cat, "📌")
         text = f"*{emoji} {cat}*\n" + "\n".join(lines)
