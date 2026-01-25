@@ -131,47 +131,56 @@ def collect_events():
     return events
 
 def format_blocks(events):
-    header = "↓↓現在募集中のイベント！！↓↓"
+    header = "📢✨*毎週金曜日配信！現在募集中のイベントまとめ*✨📢\n気になるイベントがないかチェック 👀☑️"
 
-    if not events:
-        return [{"type":"section","text":{"type":"mrkdwn","text": header + "\n掲載可能なイベントはありませんでした。"}}]
+    category_emoji = {
+        "無料ライブ": "🆓",
+        "チャージありライブ": "🎺",
+        "その他": "🎈",
+    }
 
-    # category -> list にまとめる
+    blocks = [{"type":"section","text":{"type":"mrkdwn","text": header}}]
+
     grouped = {k: [] for k in CATEGORY_ORDER}
     for e in events:
         grouped.setdefault(e["category"], []).append(e)
 
-    blocks = [{"type":"section","text":{"type":"mrkdwn","text": header}}]
-
     for cat in CATEGORY_ORDER:
         lst = grouped.get(cat, [])
         if not lst:
-            text = f"*** {cat} ***\n（現在募集はありません）"
-            blocks.append({"type":"section","text":{"type":"mrkdwn","text": text}})
-            continue
+            continue  # ★ 空カテゴリは出さない
 
         lines = []
-        for i, e in enumerate(lst, 1):
+        for e in lst:
             title_link = f"<{e['permalink']}|{e['title']}>"
-            lines.append(f"{i}. {e['when'].strftime('%m/%d(%a)')}ー{title_link}（{e['place']}）")
+            lines.append(f"• {e['when'].strftime('%m/%d(%a)')}ー{title_link}（{e['place']}）")
 
-        text = f"*** {cat} ***\n" + "\n".join(lines)
+        emoji = category_emoji.get(cat, "📌")
+        text = f"*{emoji} {cat}*\n" + "\n".join(lines)
         blocks.append({"type":"section","text":{"type":"mrkdwn","text": text}})
 
     blocks.append({
         "type":"context",
-        "elements":[{"type":"mrkdwn","text":"※ スレッド『締切』返信 or 指定リアクション付き／過去日時は掲載していません"}]
+        "elements":[{"type":"mrkdwn","text":"🔔 スレッド『締切』返信 / 指定リアクション付き / 過去日時は掲載していません"}]
     })
     return blocks
 
 
+
 def run():
     events = collect_events()
+
+    # ★ 0件なら投稿しない（ログだけ）
+    if not events:
+        print("No open events found. Skip posting.")
+        return
+
     blocks = format_blocks(events)
+
     if DRY_RUN:
-        # 確認用、投稿せず内容をログに
         print(blocks)
         return
+
     client.chat_postMessage(channel=DEST, text="週次イベントまとめ", blocks=blocks)
 
 if __name__ == "__main__":
