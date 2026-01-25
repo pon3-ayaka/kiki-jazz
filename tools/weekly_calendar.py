@@ -25,17 +25,18 @@ DATE_LINE_RE = re.compile(r"^■\s*日時\s*\n(.+)$", re.MULTILINE)
 PLACE_RE = re.compile(r"^■\s*場所\s*\n(.+)$", re.MULTILINE)
 
 DATE_TOKEN_RE = re.compile(
+DATE_TOKEN_RE = re.compile(
     r"""
-    (?P<y>\d{4})\s*(?:[./\-年\s])\s*
-    (?P<m>\d{1,2})\s*(?:[./\-月\s])\s*
-    (?P<d>\d{1,2})\s*(?:[日]?) |
-    (?P<m2>\d{1,2})\s*(?:[./\-月\s])\s*
-    (?P<d2>\d{1,2})\s*(?:[日]?)
+    # 年あり: 2026/10/11 , 2026 10 11 , 2026年10月11日 , 2026.10.11
+    (?P<y>\d{4})\s*(?:[./\-年\s])\s*(?P<m>\d{1,2})\s*(?:[./\-月\s])\s*(?P<d>\d{1,2})\s*(?:日)?
+    |
+    # 年なし: 10/11 , 10-11 , 10 11 , 10月11日
+    (?P<m2>\d{1,2})\s*(?:[./\-月\s])\s*(?P<d2>\d{1,2})\s*(?:日)?
     """,
     re.VERBOSE
 )
 
-WEEKDAY_NOISE_RE = re.compile(r"[（(]?[月火水木金土日](?:曜|曜日)?[)）]?")
+WEEKDAY_NOISE_RE = re.compile(r"[（(]?\s*[月火水木金土日]\s*(?:曜|曜日)?\s*[)）]?")
 
 def parse_event_date(line: str, now_jst: datetime) -> datetime | None:
     s = line.strip()
