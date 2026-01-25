@@ -131,7 +131,7 @@ def collect_events():
     return events
 
 def format_blocks(events):
-    header = "📢✨*毎週金曜日配信！現在募集中のイベントまとめ*✨📢\n気になるイベントがないかチェック 👀☑️"
+    header = "📢✨*毎週金曜配信！募集中イベント一覧*✨📢\n気になるイベントがないかチェック 👀✅"
 
     category_emoji = {
         "無料ライブ": "🆓",
@@ -148,21 +148,17 @@ def format_blocks(events):
     for cat in CATEGORY_ORDER:
         lst = grouped.get(cat, [])
         if not lst:
-            continue  # ★ 空カテゴリは出さない
+            continue 
 
         lines = []
         for e in lst:
             title_link = f"<{e['permalink']}|{e['title']}>"
-            lines.append(f"• {e['when'].strftime('%m/%d(%a)')}ー{title_link}（{e['place']}）")
+            lines.append(f"• {e['when'].strftime('%m/%d(%a)')}: {title_link}（{e['place']}）")
 
         emoji = category_emoji.get(cat, "📌")
         text = f"*{emoji} {cat}*\n" + "\n".join(lines)
         blocks.append({"type":"section","text":{"type":"mrkdwn","text": text}})
 
-    blocks.append({
-        "type":"context",
-        "elements":[{"type":"mrkdwn","text":"🔔 スレッド『締切』返信 / 指定リアクション付き / 過去日時は掲載していません"}]
-    })
     return blocks
 
 
@@ -170,7 +166,6 @@ def format_blocks(events):
 def run():
     events = collect_events()
 
-    # ★ 0件なら投稿しない（ログだけ）
     if not events:
         print("No open events found. Skip posting.")
         return
