@@ -25,7 +25,6 @@ DATE_LINE_RE = re.compile(r"^■\s*日時\s*\n(.+)$", re.MULTILINE)
 PLACE_RE = re.compile(r"^■\s*場所\s*\n(.+)$", re.MULTILINE)
 
 DATE_TOKEN_RE = re.compile(
-DATE_TOKEN_RE = re.compile(
     r"""
     # 年あり: 2026/10/11 , 2026 10 11 , 2026年10月11日 , 2026.10.11
     (?P<y>\d{4})\s*(?:[./\-年\s])\s*(?P<m>\d{1,2})\s*(?:[./\-月\s])\s*(?P<d>\d{1,2})\s*(?:日)?
