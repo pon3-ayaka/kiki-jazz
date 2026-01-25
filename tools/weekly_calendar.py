@@ -36,8 +36,9 @@ DATE_TOKEN_RE = re.compile(
     re.VERBOSE
 )
 
-WEEKDAY_NOISE_RE = re.compile(r"[（(]?\s*[月火水木金土日]\s*(?:曜|曜日)?\s*[)）]?")
-
+WEEKDAY_NOISE_RE = re.compile(
+    r"[（(]\s*[月火水木金土日]\s*(?:曜|曜日)?\s*[)）]|[月火水木金土日]\s*(?:曜|曜日)"
+)
 def parse_event_date(line: str, now_jst: datetime) -> datetime | None:
     s = (line or "").strip()
     if not s:
