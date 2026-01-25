@@ -256,13 +256,13 @@ def collect_events():
                 "undecided": undecided,   # Trueなら未定
             })
 
-
     # 日時昇順
     def sort_key(e):
         if e.get("undecided") or e.get("start") is None:
             return (1, datetime.max.replace(tzinfo=JST))
         return (0, e["start"])
     events.sort(key=sort_key)
+    return events
 
 
 def format_blocks(events):
