@@ -4,57 +4,47 @@ from dateutil import tz, parser as dateparser
 from slack_sdk import WebClient
 import unicodedata
 
+# set timezone
 JST = tz.gettz("Asia/Tokyo")
 client = WebClient(token=os.environ["SLACK_BOT_TOKEN"])
 
+# information slack channels
 SRC = [s.strip() for s in os.environ["SRC_CHANNELS"].split(",")]
 DEST = os.environ["DEST_CHANNEL"]
 
-# 環境可変の運用パラメータ
-POST_WINDOW_DAYS = int(os.environ.get("POST_WINDOW_DAYS", 14))
+# condition of close
 CLOSE_REACTIONS = [s.strip() for s in os.environ.get("CLOSE_REACTIONS","no_entry,x,white_check_mark").split(',')]
 CLOSE_KEYWORDS = [s.strip().lower() for s in os.environ.get("CLOSE_KEYWORDS", "締切,〆切,クローズ,closed,close").split(',')]
+
+# dry run
 DRY_RUN = os.environ.get("DRY_RUN", "false").lower() == "true"
 
-now = datetime.now(JST)
-RANGE_FROM = now
-RANGE_TO = now + timedelta(days=POST_WINDOW_DAYS)
-
-# 抽出用のざっくり正規表現
+# regular expression for extraction
 EVENT_RE = re.compile(r"^■\s*イベント名\s*\n(.+)$", re.MULTILINE)
 DATE_LINE_RE = re.compile(r"^■\s*日時\s*\n(.+)$", re.MULTILINE)
 PLACE_RE = re.compile(r"^■\s*場所\s*\n(.+)$", re.MULTILINE)
-
-DATE_TOKEN_RE = re.compile(
-    r"""
-    # 年あり: 2026/10/11 , 2026 10 11 , 2026年10月11日 , 2026.10.11
-    (?P<y>\d{4})\s*(?:[./\-年\s])\s*(?P<m>\d{1,2})\s*(?:[./\-月\s])\s*(?P<d>\d{1,2})\s*(?:日)?
-    |
-    # 年なし: 10/11 , 10-11 , 10 11 , 10月11日
-    (?P<m2>\d{1,2})\s*(?:[./\-月\s])\s*(?P<d2>\d{1,2})\s*(?:日)?
-    """,
-    re.VERBOSE
-)
-
 WEEKDAY_NOISE_RE = re.compile(
     r"[（(]\s*[月火水木金土日]\s*(?:曜|曜日)?\s*[)）]|[月火水木金土日]\s*(?:曜|曜日)"
 )
+RANGE_SEP_RE = re.compile(r"\s*(?:-|〜|～)\s*")
+COMMA_SPLIT_RE = re.compile(r"\s*[,，、]\s*")
+DOW_EN = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
 def parse_event_date(line: str, now_jst: datetime) -> datetime | None:
+    """
+
+    """
     s = (line or "").strip()
     if not s:
         return None
 
-    # ★ 全角数字/全角記号などを正規化（これが効きます）
+    # 全角数字/全角記号などを正規化
     s = unicodedata.normalize("NFKC", s)
 
     # 曜日ノイズ除去
     s = WEEKDAY_NOISE_RE.sub("", s)
     s = s.replace("　", " ")
     s = re.sub(r"\s+", " ", s)
-
-    # 時刻があれば拾う（なければ 23:59）
-    tm = re.search(r"(\d{1,2}:\d{2})", s)
-    hhmm = tm.group(1) if tm else "23:59"
 
     def build(y: int, mo: int, d: int) -> datetime | None:
         try:
@@ -63,35 +53,26 @@ def parse_event_date(line: str, now_jst: datetime) -> datetime | None:
         except Exception:
             return None
 
-    # 1) 年あり（優先）
     m = re.search(r"(\d{4})\s*[./\-\s年]\s*(\d{1,2})\s*[./\-\s月]\s*(\d{1,2})", s)
     if m:
         y, mo, d = int(m.group(1)), int(m.group(2)), int(m.group(3))
         return build(y, mo, d)
 
-    # 2) 年なし（5月3日 / 10/11 / 10 11 など）
     m = re.search(r"(\d{1,2})\s*[./\-\s月]\s*(\d{1,2})", s)
     if not m:
         return None
     mo, d = int(m.group(1)), int(m.group(2))
 
-    # ★「未来になる方」：今年→来年で試して、未来になった方を採用
     for y in (now_jst.year, now_jst.year + 1):
         cand = build(y, mo, d)
         if cand and cand >= now_jst:
             return cand
     return None
 
-# --- 追加: 範囲/複数日の検出 ---
-RANGE_SEP_RE = re.compile(r"\s*(?:-|〜|～)\s*")
-COMMA_SPLIT_RE = re.compile(r"\s*[,，、]\s*")
 
-# --- 追加: 曜日表記（Mon/Tue...） ---
-DOW_EN = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 def dow(dt: datetime) -> str:
     return DOW_EN[dt.weekday()]
 
-# --- 追加: 一覧表示の統一フォーマット ---
 def format_date_range(start: datetime, end: datetime | None) -> str:
     if end is None or end.date() == start.date():
         return f"{start.month}/{start.day}({dow(start)})"
@@ -99,7 +80,6 @@ def format_date_range(start: datetime, end: datetime | None) -> str:
         return f"{start.month}/{start.day}({dow(start)})-{end.day}({dow(end)})"
     return f"{start.month}/{start.day}({dow(start)})-{end.month}/{end.day}({dow(end)})"
 
-# --- 追加: 単日/期間/複数/未定をまとめて解釈 ---
 def parse_event_date_info(line: str, now_jst: datetime):
     """
     return: (start_dt, end_dt, undecided)
@@ -214,11 +194,14 @@ def is_closed(parent_ts, channel):
     return False
 
 def fetch_messages(ch):
+    """
+    Fetch messages from a Slack channel.
+    """
     messages = []
-    res = client.conversations_history(channel=ch, limit=200)
+    res = client.conversations_history(channel=ch)
     messages.extend(res.get("messages", []))
     while res.get("has_more"):
-        res = client.conversations_history(channel=ch, cursor=res["response_metadata"]["next_cursor"], limit=200)
+        res = client.conversations_history(channel=ch, cursor=res["response_metadata"]["next_cursor"])
         messages.extend(res.get("messages", []))
     return messages
 
