@@ -321,10 +321,6 @@ def run():
 
     blocks = format_blocks(events)
 
-    if DRY_RUN:
-        print(blocks)
-        return
-
     client.chat_postMessage(channel=DEST, text="週次イベントまとめ", blocks=blocks)
 
 if __name__ == "__main__":
