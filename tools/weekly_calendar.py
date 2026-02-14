@@ -4,6 +4,17 @@ from dateutil import tz, parser as dateparser
 from slack_sdk import WebClient
 import unicodedata
 
+DRY_RUN = os.environ.get("DRY_RUN", "false").lower() == "true"
+
+if DRY_RUN:
+    print("=== DRY RUN MODE ===")
+    os.environ["SLACK_BOT_TOKEN"] = os.environ.get("SLACK_BOT_TOKEN_DEBUG")
+    os.environ["SRC_CHANNELS"] = os.environ.get("SRC_CHANNELS_DEBUG")
+    os.environ["DEST_CHANNEL"] = os.environ.get("DEST_CHANNEL_DEBUG")
+    os.environ["FREE_CHANNELS"] = os.environ.get("FREE_CHANNELS_DEBUG")
+    os.environ["PAID_CHANNELS"] = os.environ.get("PAID_CHANNELS_DEBUG")
+    os.environ["OTHER_CHANNELS"] = os.environ.get("OTHER_CHANNELS_DEBUG")
+
 JST = tz.gettz("Asia/Tokyo")
 client = WebClient(token=os.environ["SLACK_BOT_TOKEN"])
 
@@ -11,14 +22,12 @@ SRC = [s.strip() for s in os.environ["SRC_CHANNELS"].split(",")]
 DEST = os.environ["DEST_CHANNEL"]
 
 # 環境可変の運用パラメータ
-POST_WINDOW_DAYS = int(os.environ.get("POST_WINDOW_DAYS", 14))
 CLOSE_REACTIONS = [s.strip() for s in os.environ.get("CLOSE_REACTIONS","no_entry,x,white_check_mark").split(',')]
 CLOSE_KEYWORDS = [s.strip().lower() for s in os.environ.get("CLOSE_KEYWORDS", "締切,〆切,クローズ,closed,close").split(',')]
-DRY_RUN = os.environ.get("DRY_RUN", "false").lower() == "true"
+
 
 now = datetime.now(JST)
 RANGE_FROM = now
-RANGE_TO = now + timedelta(days=POST_WINDOW_DAYS)
 
 # 抽出用のざっくり正規表現
 EVENT_RE = re.compile(r"^■\s*イベント名\s*\n(.+)$", re.MULTILINE)
@@ -311,10 +320,6 @@ def run():
         return
 
     blocks = format_blocks(events)
-
-    if DRY_RUN:
-        print(blocks)
-        return
 
     client.chat_postMessage(channel=DEST, text="週次イベントまとめ", blocks=blocks)
 
