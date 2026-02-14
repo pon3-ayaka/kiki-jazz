@@ -21,8 +21,14 @@ jobs:
           DEST_CHANNEL: ${{ secrets.DEST_CHANNEL }}
           CLOSE_REACTIONS: ${{ vars.CLOSE_REACTIONS || 'no_entry,white_check_mark' }}
           CLOSE_KEYWORDS: ${{ vars.CLOSE_KEYWORDS || '締切,〆切,クローズ,closed,close' }}
+          FREE_CHANNELS: ${{ vars.FREE_CHANNELS }}
+          PAID_CHANNELS: ${{ vars.PAID_CHANNELS }}
+          OTHER_CHANNELS: ${{ vars.OTHER_CHANNELS }}
           DRY_RUN: ${{ vars.DRY_RUN || 'false' }}
-          FREE_CHANNELS: ${{ vars.FREE_CHANNELS }}   # 例: CAAAAAAA
-          PAID_CHANNELS: ${{ vars.PAID_CHANNELS }}   # 例: CBBBBBBB
-          OTHER_CHANNELS: ${{ vars.OTHER_CHANNELS }} # 例: CCCCCCCC
+          SLACK_BOT_TOKEN_DEBUG: ${{ secrets.SLACK_BOT_TOKEN_DEBUG }}
+          SRC_CHANNELS_DEBUG: ${{ secrets.SRC_CHANNELS_DEBUG }}
+          DEST_CHANNEL_DEBUG: ${{ secrets.DEST_CHANNEL_DEBUG }}
+          FREE_CHANNELS_DEBUG: ${{ vars.FREE_CHANNELS_DEBUG }}
+          PAID_CHANNELS_DEBUG: ${{ vars.PAID_CHANNELS_DEBUG }}
+          OTHER_CHANNELS_DEBUG: ${{ vars.OTHER_CHANNELS_DEBUG }}
         run: python tools/weekly_calendar.py
