@@ -1,0 +1,23 @@
+name: monthly-template
+
+on:
+  schedule:
+    - cron: '0 3 1 * *'   # 毎月1日 03:00 UTC = 12:00 JST
+  workflow_dispatch:
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - run: python tools/post_template.py
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SRC_CHANNELS: ${{ secrets.SRC_CHANNELS }}
+          DRY_RUN: ${{ vars.DRY_RUN || 'false' }}
+          SLACK_BOT_TOKEN_DEBUG: ${{ secrets.SLACK_BOT_TOKEN_DEBUG }}
+          SRC_CHANNELS_DEBUG: ${{ secrets.SRC_CHANNELS_DEBUG }}
