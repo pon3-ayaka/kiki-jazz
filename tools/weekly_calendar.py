@@ -41,6 +41,8 @@ RANGE_SEP_RE = re.compile(r"\s*(?:-|〜|～)\s*")
 COMMA_SPLIT_RE = re.compile(r"\s*[,，、]\s*")
 DOW_EN = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
+now = datetime.now(JST)
+
 def parse_event_date(line: str, now_jst: datetime) -> datetime | None:
     """
 
