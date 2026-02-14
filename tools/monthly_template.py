@@ -1,8 +1,7 @@
-import os, re
-from datetime import datetime, timedelta
-from dateutil import tz, parser as dateparser
+import os
 from slack_sdk import WebClient
-import unicodedata
+from slack_sdk.errors import SlackApiError
+import sys
 
 DRY_RUN = os.environ.get("DRY_RUN", "false").lower() == "true"
 
@@ -13,9 +12,8 @@ if DRY_RUN:
 
 SRC = [s.strip() for s in os.environ["SRC_CHANNELS"].split(",")]
 
-TEMPLATE_TEXT = 
-"""
-■ イベント名
+TEMPLATE_TEXT = (
+"""■ イベント名
 （例）○○ライブ
 ■ 日時
 （例）2026.4.30
@@ -27,7 +25,7 @@ TEMPLATE_TEXT =
 イベントなど募集の際はこちらのテンプレートをコピーして、必要な情報を記載してください。
 ここの欄には好きなこと、自由に書いてください！
 """
-
+)
 def env_bool(key: str, default: bool = False) -> bool:
     v = os.environ.get(key)
     if v is None:
