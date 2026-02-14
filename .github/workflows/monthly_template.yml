@@ -14,7 +14,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install -r requirements.txt
-      - run: python tools/post_template.py
+      - run: python tools/monthly_template.py
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           SRC_CHANNELS: ${{ secrets.SRC_CHANNELS }}
