@@ -48,6 +48,18 @@ DATE_TOKEN_RE = re.compile(
 WEEKDAY_NOISE_RE = re.compile(
     r"[（(]\s*[月火水木金土日]\s*(?:曜|曜日)?\s*[)）]|[月火水木金土日]\s*(?:曜|曜日)"
 )
+
+TEMPLATE_SKIP_KEYWORDS = [
+    s.strip() for s in os.environ.get(
+        "TEMPLATE_SKIP_KEYWORDS",
+        "このテンプレートは毎月1日に自動で投稿,テンプレートをコピー,（例）"
+    ).split(",")
+]
+
+def is_template_post(text: str) -> bool:
+    t = (text or "")
+    return any(k and k in t for k in TEMPLATE_SKIP_KEYWORDS)
+
 def parse_event_date(line: str, now_jst: datetime) -> datetime | None:
     s = (line or "").strip()
     if not s:
@@ -239,6 +251,10 @@ def collect_events():
             if m.get("subtype"):
                 continue # bot_message等を除外
             text = m.get("text","")
+
+            if is_template_post(text):
+                continue
+                
             title, place, start, end, undecided = parse_fields(text)
             if not (title and place):
                 continue
